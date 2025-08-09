@@ -25,6 +25,18 @@
         .message-user {
             background: linear-gradient(135deg, #8b5cf6, #ec4899);
         }
+        .loader {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #8b5cf6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -83,6 +95,9 @@
     </div>
 
     <script>
+        // Configuration - Replace with your actual n8n webhook URL
+        const WEBHOOK_URL = 'YOUR_N8N_WEBHOOK_URL_HERE'; // Replace this with your actual webhook URL
+        
         // Chat state
         let currentStep = 0;
         let formData = {};
@@ -246,38 +261,90 @@
             }, 1500);
         }
 
+        async function sendToWebhook(data) {
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('Error sending data to webhook:', error);
+                throw error;
+            }
+        }
+
         function completeForm() {
             isComplete = true;
             userInput.disabled = true;
-            userInput.placeholder = "Conversation completed ✨";
-            helpText.style.display = 'none';
+            userInput.placeholder = "Processing... ⚡";
+            helpText.innerHTML = '<div class="flex items-center justify-center gap-2"><div class="loader"></div><span>Sending to AI...</span></div>';
 
-            addMessage("🎉 Perfect! I've collected all the information I need. Let me generate your test scripts now...", 'bot');
+            addMessage("🎉 Perfect! I've collected all the information I need. Let me send this to our AI system to generate your test scripts...", 'bot');
             
-            setTimeout(() => {
-                addMessage("✅ Your test scripts have been generated successfully! Here's a summary of what I'm preparing for you:", 'bot');
-                
-                setTimeout(() => {
-                    const summary = generateSummary();
-                    addMessage(summary, 'bot');
+            setTimeout(async () => {
+                try {
+                    // Send data to n8n webhook
+                    const webhookData = {
+                        fullName: formData.fullName,
+                        email: formData.email,
+                        appUrl: formData.appUrl,
+                        username: formData.username || 'none',
+                        password: formData.password || 'none',
+                        testingType: formData.testingType,
+                        numScripts: parseInt(formData.numScripts) || 3,
+                        tool: formData.tool,
+                        language: formData.language,
+                        framework: formData.framework,
+                        designPattern: formData.designPattern,
+                        isBDD: formData.isBDD,
+                        bddLibrary: formData.bddLibrary || 'skip',
+                        scenarioFile: formData.scenarioFile === 'none' ? '' : formData.scenarioFile
+                    };
+
+                    const result = await sendToWebhook(webhookData);
+                    
+                    addMessage("✅ Successfully sent to AI! Here's a summary of what I'm preparing for you:", 'bot');
                     
                     setTimeout(() => {
-                        addMessage("📧 Your complete test automation scripts will be sent to your email within the next 2-3 minutes. The scripts will include:", 'bot');
+                        const summary = generateSummary();
+                        addMessage(summary, 'bot');
                         
                         setTimeout(() => {
-                            addMessage(`• ${formData.numScripts} test scripts in ${formData.language}
+                            addMessage("📧 Your complete test automation scripts are being generated and will be sent to your email within the next 2-3 minutes. The scripts will include:", 'bot');
+                            
+                            setTimeout(() => {
+                                addMessage(`• ${formData.numScripts} test scripts in ${formData.language}
 • Using ${formData.framework} framework
 • ${formData.designPattern} design pattern
 • ${formData.tool} for browser automation
 • Complete setup instructions
 • Ready-to-run code`, 'bot');
-                            
-                            setTimeout(() => {
-                                addMessage("Thank you for using our AI-Powered Test Script Generator! 🚀", 'bot');
-                            }, 2000);
-                        }, 1500);
+                                
+                                setTimeout(() => {
+                                    addMessage("Thank you for using our AI-Powered Test Script Generator! 🚀", 'bot');
+                                    helpText.innerHTML = '<span class="text-green-400">✅ Successfully sent to AI system!</span>';
+                                }, 2000);
+                            }, 1500);
+                        }, 1000);
                     }, 1000);
-                }, 1000);
+                    
+                } catch (error) {
+                    addMessage("❌ Sorry, there was an error sending your request. Please check the webhook URL configuration and try again.", 'bot');
+                    helpText.innerHTML = '<span class="text-red-400">❌ Error: Please check webhook configuration</span>';
+                    userInput.disabled = false;
+                    userInput.placeholder = "Type your answer here...";
+                    isComplete = false;
+                }
             }, 1000);
         }
 
@@ -312,6 +379,14 @@ ${formData.isBDD === 'Yes' ? `🥒 **BDD Library:** ${formData.bddLibrary}` : ''
             addMessage("What's your full name?", 'bot');
             userInput.focus();
         }, 1000);
+
+        // Check webhook URL configuration
+        if (WEBHOOK_URL === 'http://localhost:5678/webhook/generate-test-scripts') {
+            console.warn('⚠️ Please replace WEBHOOK_URL with your actual n8n webhook URL');
+            setTimeout(() => {
+                addMessage("⚠️ Configuration needed: Please update the WEBHOOK_URL in the code with your n8n webhook endpoint.", 'bot');
+            }, 3000);
+        }
     </script>
 </body>
 </html>
