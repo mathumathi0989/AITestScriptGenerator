@@ -1,0 +1,294 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Send, Bot, User, Loader2, CheckCircle, Code, TestTube } from 'lucide-react';
+
+const TestScriptGeneratorChat = () => {
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      type: 'bot',
+      text: "🧪 Welcome to the AI-Powered Test Script Generator! I'll help you create automated test scripts for your web application. Let's start with some basic information.",
+      timestamp: new Date()
+    },
+    {
+      id: 2,
+      type: 'bot',
+      text: "What's your full name?",
+      timestamp: new Date()
+    }
+  ]);
+  
+  const [currentInput, setCurrentInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [formData, setFormData] = useState({});
+  const [isComplete, setIsComplete] = useState(false);
+  
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const questions = [
+    { key: 'fullName', question: "What's your full name?", type: 'text' },
+    { key: 'email', question: "What's your email address? (We'll send the scripts here)", type: 'email' },
+    { key: 'appUrl', question: "What's your application URL? (e.g., https://example.com)", type: 'url' },
+    { key: 'username', question: "Do you need login credentials? If yes, what's the username? (Type 'none' if not needed)", type: 'text' },
+    { key: 'password', question: "What's the password? (Type 'none' if not needed)", type: 'password' },
+    { key: 'testingType', question: "What type of testing do you need?", type: 'select', options: ['Functional Testing', 'Regression Testing', 'Smoke Testing', 'UI Testing'] },
+    { key: 'language', question: "Which coding language would you prefer?", type: 'select', options: ['Java', 'Python', 'JavaScript'] },
+    { key: 'framework', question: "Which testing framework?", type: 'select', options: ['TestNG', 'JUnit', 'pytest', 'Jest', 'Mocha'] },
+    { key: 'designPattern', question: "Which design pattern would you like to use?", type: 'select', options: ['Page Object Model', 'Page Factory', 'Screenplay Pattern', 'Fluent Interface'] },
+    { key: 'isBDD', question: "Do you want BDD (Behavior Driven Development) style tests?", type: 'select', options: ['Yes', 'No'] },
+    { key: 'bddLibrary', question: "Which BDD library? (Skip if you selected No for BDD)", type: 'select', options: ['Cucumber', 'SpecFlow', 'Behave', 'Jest-Cucumber', 'Skip'] },
+    { key: 'numScripts', question: "How many test scripts do you need?", type: 'number' },
+    { key: 'tool', question: "Which automation tool?", type: 'select', options: ['Selenium', 'Playwright'] },
+    { key: 'scenarioFile', question: "Do you have a test scenarios file? If yes, provide the Google Sheets link (or type 'none')", type: 'text' }
+  ];
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [currentStep]);
+
+  const addMessage = (text, type = 'user') => {
+    const newMessage = {
+      id: Date.now(),
+      type,
+      text,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, newMessage]);
+    return newMessage;
+  };
+
+  const simulateTyping = (callback, delay = 1000) => {
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      callback();
+    }, delay);
+  };
+
+  const handleSubmit = () => {
+    if (!currentInput.trim() || isTyping || isComplete) return;
+
+    const userMessage = addMessage(currentInput, 'user');
+    const currentQuestion = questions[currentStep];
+    
+    // Store the answer
+    setFormData(prev => ({
+      ...prev,
+      [currentQuestion.key]: currentInput.trim()
+    }));
+
+    setCurrentInput('');
+
+    // Move to next question or complete
+    if (currentStep < questions.length - 1) {
+      simulateTyping(() => {
+        const nextStep = currentStep + 1;
+        const nextQuestion = questions[nextStep];
+        
+        // Skip BDD library question if user selected No for BDD
+        if (nextQuestion.key === 'bddLibrary' && formData.isBDD === 'No') {
+          setCurrentStep(nextStep + 1);
+          if (nextStep + 1 < questions.length) {
+            addMessage(questions[nextStep + 1].question, 'bot');
+          } else {
+            completeForm();
+          }
+        } else {
+          setCurrentStep(nextStep);
+          addMessage(nextQuestion.question, 'bot');
+        }
+      });
+    } else {
+      // Complete the form
+      simulateTyping(() => {
+        completeForm();
+      }, 1500);
+    }
+  };
+
+  const completeForm = () => {
+    setIsComplete(true);
+    addMessage("🎉 Perfect! I've collected all the information I need. Let me generate your test scripts now...", 'bot');
+    
+    setTimeout(() => {
+      addMessage("✅ Your test scripts have been generated successfully! Here's a summary of what I'm preparing for you:", 'bot');
+      
+      setTimeout(() => {
+        const summary = generateSummary();
+        addMessage(summary, 'bot');
+        
+        setTimeout(() => {
+          addMessage("📧 Your complete test automation scripts will be sent to your email within the next 2-3 minutes. The scripts will include:", 'bot');
+          
+          setTimeout(() => {
+            addMessage(`• ${formData.numScripts} test scripts in ${formData.language}\n• Using ${formData.framework} framework\n• ${formData.designPattern} design pattern\n• ${formData.tool} for browser automation\n• Complete setup instructions\n• Ready-to-run code`, 'bot');
+            
+            setTimeout(() => {
+              addMessage("Thank you for using our AI-Powered Test Script Generator! 🚀", 'bot');
+            }, 2000);
+          }, 1500);
+        }, 1000);
+      }, 1000);
+    }, 1000);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit();
+    }
+  };
+
+  const handleButtonClick = () => {
+    handleSubmit();
+  };
+    return `📋 **Test Script Configuration:**
+
+👤 **Name:** ${formData.fullName}
+📧 **Email:** ${formData.email}
+🌐 **Application:** ${formData.appUrl}
+🔐 **Login Required:** ${formData.username !== 'none' ? 'Yes' : 'No'}
+🧪 **Testing Type:** ${formData.testingType}
+💻 **Language:** ${formData.language}
+🏗️ **Framework:** ${formData.framework}
+📐 **Design Pattern:** ${formData.designPattern}
+📝 **BDD Style:** ${formData.isBDD}
+${formData.isBDD === 'Yes' ? `🥒 **BDD Library:** ${formData.bddLibrary}` : ''}
+📊 **Number of Scripts:** ${formData.numScripts}
+🛠️ **Tool:** ${formData.tool}
+📄 **Custom Scenarios:** ${formData.scenarioFile !== 'none' ? 'Yes' : 'No'}`;
+  };
+
+  const renderSelectOptions = (options) => {
+    return (
+      <div className="flex flex-wrap gap-2 mt-2">
+        {options.map((option, index) => (
+          <button
+            key={index}
+            onClick={() => setCurrentInput(option)}
+            className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-full text-sm transition-colors"
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const currentQuestion = questions[currentStep];
+  const showOptions = currentQuestion && currentQuestion.type === 'select' && !isComplete;
+
+  return (
+    <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b p-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <TestTube className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">AI Test Script Generator</h1>
+            <p className="text-sm text-gray-600">Generate automated test scripts with AI</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Chat Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            {message.type === 'bot' && (
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                  <Bot className="w-5 h-5 text-white" />
+                </div>
+              </div>
+            )}
+            
+            <div
+              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
+                message.type === 'user'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-800 shadow-sm'
+              }`}
+            >
+              <p className="text-sm whitespace-pre-line">{message.text}</p>
+            </div>
+
+            {message.type === 'user' && (
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {isTyping && (
+          <div className="flex gap-3 justify-start">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <Bot className="w-5 h-5 text-white" />
+              </div>
+            </div>
+            <div className="bg-white text-gray-800 shadow-sm px-4 py-2 rounded-2xl">
+              <div className="flex items-center gap-1">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Typing...</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showOptions && renderSelectOptions(currentQuestion.options)}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input Form */}
+      <div className="bg-white border-t p-4">
+        <div className="flex gap-2">
+          <input
+            ref={inputRef}
+            type={currentQuestion?.type === 'password' ? 'password' : 'text'}
+            value={currentInput}
+            onChange={(e) => setCurrentInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder={isComplete ? "Conversation completed" : "Type your answer..."}
+            disabled={isTyping || isComplete}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+          />
+          <button
+            onClick={handleButtonClick}
+            disabled={!currentInput.trim() || isTyping || isComplete}
+            className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </div>
+        
+        {showOptions && (
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Click on an option above or type your answer
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default TestScriptGeneratorChat;
