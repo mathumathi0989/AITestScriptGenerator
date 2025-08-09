@@ -379,14 +379,6 @@ ${formData.isBDD === 'Yes' ? `🥒 **BDD Library:** ${formData.bddLibrary}` : ''
             addMessage("What's your full name?", 'bot');
             userInput.focus();
         }, 1000);
-
-        // Check webhook URL configuration
-        if (WEBHOOK_URL === 'http://localhost:5678/webhook/generate-test-scripts') {
-            console.warn('⚠️ Please replace WEBHOOK_URL with your actual n8n webhook URL');
-            setTimeout(() => {
-                addMessage("⚠️ Configuration needed: Please update the WEBHOOK_URL in the code with your n8n webhook endpoint.", 'bot');
-            }, 3000);
-        }
     </script>
 </body>
 </html>
