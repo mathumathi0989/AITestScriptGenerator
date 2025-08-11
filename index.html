@@ -37,6 +37,10 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .textarea-custom {
+            min-height: 100px;
+            resize: vertical;
+        }
     </style>
 </head>
 <body>
@@ -72,7 +76,7 @@
 
         <!-- Input Area -->
         <div class="glass p-6 border-t border-gray-700/50">
-            <div class="flex gap-4">
+            <div class="flex gap-4" id="inputContainer">
                 <input 
                     type="text" 
                     id="userInput"
@@ -117,6 +121,7 @@
             { key: 'isBDD', question: "Do you want BDD (Behavior Driven Development) style tests?", type: 'select', options: ['Yes', 'No'] },
             { key: 'bddLibrary', question: "Which BDD library? (Skip if you selected No for BDD)", type: 'select', options: ['Cucumber', 'SpecFlow', 'Behave', 'Jest-Cucumber', 'Skip'] },
             { key: 'numScripts', question: "How many test scripts do you need?", type: 'number' },
+            { key: 'testFlow', question: "Please describe your testing flow in plain English. What specific user actions or scenarios should the tests cover? (e.g., 'Login, navigate to products page, add item to cart, checkout, verify order confirmation')", type: 'textarea' },
             { key: 'tool', question: "Which automation tool?", type: 'select', options: ['Selenium', 'Playwright'] },
             { key: 'scenarioFile', question: "Do you have a test scenarios file? If yes, provide the Google Sheets link (or type 'none')", type: 'text' }
         ];
@@ -127,6 +132,7 @@
         const userInput = document.getElementById('userInput');
         const sendBtn = document.getElementById('sendBtn');
         const helpText = document.getElementById('helpText');
+        const inputContainer = document.getElementById('inputContainer');
 
         function addMessage(text, type = 'bot', delay = 0) {
             setTimeout(() => {
@@ -201,7 +207,8 @@
                     button.className = 'px-4 py-2 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-purple-600 hover:to-pink-600 text-gray-100 hover:text-white rounded-full text-sm font-medium transition-all duration-300 border border-gray-600 hover:border-transparent shadow-lg hover:shadow-purple-500/25 transform hover:scale-105';
                     button.textContent = option;
                     button.onclick = () => {
-                        userInput.value = option;
+                        const currentInput = document.getElementById('userInput') || document.getElementById('userTextarea');
+                        currentInput.value = option;
                         handleSubmit();
                     };
                     optionsDiv.appendChild(button);
@@ -211,10 +218,42 @@
             }
         }
 
-        function handleSubmit() {
-            if (!userInput.value.trim() || isTyping || isComplete) return;
+        function switchToTextarea() {
+            const currentInput = document.getElementById('userInput');
+            const textarea = document.createElement('textarea');
+            textarea.id = 'userTextarea';
+            textarea.placeholder = 'Describe your testing flow in detail... (e.g., Login with valid credentials, navigate to products page, add multiple items to cart, apply discount code, proceed to checkout, fill shipping details, complete payment, verify order confirmation email)';
+            textarea.className = 'flex-1 px-6 py-4 bg-gray-800/80 border border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-gray-400 text-sm transition-all duration-300 shadow-lg textarea-custom';
+            
+            currentInput.parentNode.replaceChild(textarea, currentInput);
+            textarea.focus();
+            
+            // Update help text for textarea
+            helpText.textContent = '💡 Be specific about user actions, expected outcomes, and any edge cases you want to test';
+        }
 
-            const answer = userInput.value.trim();
+        function switchToInput() {
+            const currentTextarea = document.getElementById('userTextarea');
+            if (currentTextarea) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.id = 'userInput';
+                input.placeholder = 'Type your answer here...';
+                input.className = 'flex-1 px-6 py-4 bg-gray-800/80 border border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-gray-400 text-sm transition-all duration-300 shadow-lg';
+                
+                currentTextarea.parentNode.replaceChild(input, currentTextarea);
+                input.focus();
+                
+                // Reset help text
+                helpText.textContent = '✨ Click on an option above or type your custom answer';
+            }
+        }
+
+        function handleSubmit() {
+            const currentInput = document.getElementById('userInput') || document.getElementById('userTextarea');
+            if (!currentInput.value.trim() || isTyping || isComplete) return;
+
+            const answer = currentInput.value.trim();
             const currentQuestion = questions[currentStep];
 
             // Add user message
@@ -222,7 +261,7 @@
             
             // Store the answer
             formData[currentQuestion.key] = answer;
-            userInput.value = '';
+            currentInput.value = '';
             optionsContainer.innerHTML = '';
 
             // Show typing indicator
@@ -242,23 +281,36 @@
                         currentStep++;
                         if (currentStep < questions.length) {
                             const questionAfterBDD = questions[currentStep];
-                            addMessage(questionAfterBDD.question);
-                            if (questionAfterBDD.options) {
-                                setTimeout(() => showOptions(questionAfterBDD.options), 500);
-                            }
+                            handleQuestionType(questionAfterBDD);
                         } else {
                             completeForm();
                         }
                     } else {
-                        addMessage(nextQuestion.question);
-                        if (nextQuestion.options) {
-                            setTimeout(() => showOptions(nextQuestion.options), 500);
-                        }
+                        handleQuestionType(nextQuestion);
                     }
                 } else {
                     completeForm();
                 }
             }, 1500);
+        }
+
+        function handleQuestionType(question) {
+            addMessage(question.question);
+            
+            // Switch input type based on question type
+            if (question.type === 'textarea') {
+                setTimeout(() => {
+                    switchToTextarea();
+                    if (question.options) {
+                        showOptions(question.options);
+                    }
+                }, 500);
+            } else {
+                switchToInput();
+                if (question.options) {
+                    setTimeout(() => showOptions(question.options), 500);
+                }
+            }
         }
 
         async function sendToWebhook(data) {
@@ -285,11 +337,12 @@
 
         function completeForm() {
             isComplete = true;
-            userInput.disabled = true;
-            userInput.placeholder = "Processing... ⚡";
+            const currentInput = document.getElementById('userInput') || document.getElementById('userTextarea');
+            currentInput.disabled = true;
+            currentInput.placeholder = "Processing... ⚡";
             helpText.innerHTML = '<div class="flex items-center justify-center gap-2"><div class="loader"></div><span>Sending to AI...</span></div>';
 
-            addMessage("🎉 Perfect! I've collected all the information I need. Let me send this to our AI system to generate your test scripts...", 'bot');
+            addMessage("🎉 Perfect! I've collected all the information I need. Let me send this to our AI system to generate your test scripts based on your specific flow...", 'bot');
             
             setTimeout(async () => {
                 try {
@@ -302,6 +355,7 @@
                         password: formData.password || 'none',
                         testingType: formData.testingType,
                         numScripts: parseInt(formData.numScripts) || 3,
+                        testFlow: formData.testFlow,  // Added the new flow field
                         tool: formData.tool,
                         language: formData.language,
                         framework: formData.framework,
@@ -320,10 +374,11 @@
                         addMessage(summary, 'bot');
                         
                         setTimeout(() => {
-                            addMessage("📧 Your complete test automation scripts are being generated and will be sent to your email within the next 2-3 minutes. The scripts will include:", 'bot');
+                            addMessage("📧 Your complete test automation scripts are being generated based on your specific testing flow and will be sent to your email within the next 2-3 minutes. The scripts will include:", 'bot');
                             
                             setTimeout(() => {
                                 addMessage(`• ${formData.numScripts} test scripts in ${formData.language}
+• Based on your specific testing flow: "${formData.testFlow.substring(0, 100)}${formData.testFlow.length > 100 ? '...' : ''}"
 • Using ${formData.framework} framework
 • ${formData.designPattern} design pattern
 • ${formData.tool} for browser automation
@@ -341,8 +396,9 @@
                 } catch (error) {
                     addMessage("❌ Sorry, there was an error sending your request. Please check the webhook URL configuration and try again.", 'bot');
                     helpText.innerHTML = '<span class="text-red-400">❌ Error: Please check webhook configuration</span>';
-                    userInput.disabled = false;
-                    userInput.placeholder = "Type your answer here...";
+                    const currentInput = document.getElementById('userInput') || document.getElementById('userTextarea');
+                    currentInput.disabled = false;
+                    currentInput.placeholder = "Type your answer here...";
                     isComplete = false;
                 }
             }, 1000);
@@ -362,14 +418,25 @@
 📝 **BDD Style:** ${formData.isBDD}
 ${formData.isBDD === 'Yes' ? `🥒 **BDD Library:** ${formData.bddLibrary}` : ''}
 📊 **Number of Scripts:** ${formData.numScripts}
+🔄 **Testing Flow:** ${formData.testFlow.substring(0, 150)}${formData.testFlow.length > 150 ? '...' : ''}
 🛠️ **Tool:** ${formData.tool}
 📄 **Custom Scenarios:** ${formData.scenarioFile !== 'none' ? 'Yes' : 'No'}`;
         }
 
         // Event listeners
         sendBtn.addEventListener('click', handleSubmit);
-        userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleSubmit();
+        
+        // Dynamic event listener for Enter key (works for both input and textarea)
+        document.addEventListener('keypress', (e) => {
+            const currentInput = document.getElementById('userInput') || document.getElementById('userTextarea');
+            if (e.key === 'Enter' && document.activeElement === currentInput) {
+                if (currentInput.tagName === 'TEXTAREA' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                } else if (currentInput.tagName === 'INPUT') {
+                    handleSubmit();
+                }
+            }
         });
 
         // Initialize chat
